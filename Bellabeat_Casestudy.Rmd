@@ -1,0 +1,163 @@
+---
+title: "Bellabeat Case Study"
+author: "By Dikchhya Palikhe"
+date: "11/9/2021"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Introduction 
+
+&nbsp;&nbsp;&nbsp;This case study on a wellness company was prepared as a part of the Google Data Analytics Professional Certificate capstone. Bellabeat is a successful small company that manufactures health-focused products for women. In order to grow in the global smart device market, Urška Sršen, cofounder and Chief Creative Officer of Bellabeat wants to analyze the smart device data to help guide the marketing strategy of their company. 
+
+&nbsp;&nbsp;&nbsp;The analysis will be based on the following questions:
+  
+1. What are some trends in smart device usage?
+
+2. How could these trends apply to Bellabeat customers?
+
+3. How could these trends help influence Bellabeat marketing strategy?
+
+&nbsp;&nbsp;&nbsp;By analyzing the smart device usage data, I was able to understand how consumers use non-Bellabeat smart devices and apply the findings in coming up with recommendations for Bellabeat marketing strategy. 
+
+### Data 
+
+&nbsp;&nbsp;&nbsp;The dataset used in this project was downloaded from [FitBit Fitness Tracker Data](https://www.kaggle.com/arashnic/fitbit) by [Mobius](https://www.kaggle.com/arashnic) on Kaggle. It contains personal tracker data such as minute-level output for physical activity, heart rate and sleep monitoring from thirty Fitbit users. The datasets were responses from a Amazon Mechanical Turk survey in 2016. 
+
+&nbsp;&nbsp;&nbsp; For the purpose of this study, I used three datasets:
+
+1)Daily Activity has 940 observations and 15 variables and consists of steps, distance and calories tracked from the users. 
+
+2)Sleep Day has 413 observations and 5 variables and consists of total time spent sleeping and total time spent on the bed. 
+
+3)Weight Log has 67 observations and 8 variables and consists of weight, fat and BMI of the users. 
+
+### Data Cleaning
+
+&nbsp;&nbsp;&nbsp;Using Excel,I changed the data format of the variable SleepDay from Sleep Day data to (mm/dd/yy) to match that of Daily Activity data. Then, I imported the datasets to R for further data cleaning and analysis. 
+
+```{r, fig.align='center'}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+daily_activity<- read.csv(file.choose() , stringsAsFactors = TRUE)
+sleep_day<- read.csv(file.choose() , stringsAsFactors = TRUE)
+weight_log<- read.csv(file.choose() , stringsAsFactors = TRUE)
+attach(daily_activity)
+attach(sleep_day)
+attach(weight_log)
+```
+
+
+```{r, fig.align='center'}
+#Removing missing values 
+daily_activity<- daily_activity%>%drop_na()
+sleep_day<-sleep_day%>%drop_na()
+weight_log<-weight_log%>%drop_na()
+```
+
+```{r, fig.align='center'}
+#Changing the minutes to hours and selecting only the required columns
+daily_activity<-daily_activity %>% mutate(VeryActiveHours = VeryActiveMinutes/60) %>% mutate(FairlyActiveHours = FairlyActiveMinutes/60) %>% mutate(LightlyActiveHours = LightlyActiveMinutes/60) %>% mutate(SedentaryHours = SedentaryMinutes/60)%>% select(Id, ActivityDate,TotalSteps,TotalDistance,TrackerDistance,VeryActiveHours, FairlyActiveHours, LightlyActiveHours, SedentaryHours, Calories)
+  
+sleep_day<-mutate(sleep_day,TotalHoursAsleep = TotalMinutesAsleep / 60) %>% mutate(sleep_day, TotalHoursinBed=TotalTimeInBed/60)%>%select(Id,SleepDay,TotalSleepRecords,TotalHoursAsleep, TotalHoursinBed)
+
+```
+
+
+### Analysis and Data Visualizations 
+
+
+```{r, fig.align='center'}
+#5 number summary 
+summary(daily_activity)
+summary(sleep_day)
+summary(weight_log)
+length(unique(daily_activity$Id))
+length(unique(sleep_day$Id))
+length(unique(weight_log$Id))
+```
+
+&nbsp;&nbsp;&nbsp;From the summary,I found out that there is a difference in between means of TotalDistance(5.490) and TrackerDistance(5.475) from the daily_activity dataset.SedentaryHours has a mean of about 16.52 hours while VeryActiveHours has a mean of just 0.35275.Similarly, from the sleep_day dataset, average TotalHoursAsleep is 6.9911 hours while the average TotalHoursinBed is 7.644 hours. This difference in hours suggest that people must have difficulty in falling asleep or they must use their electronic device in bed. 
+
+&nbsp;&nbsp;&nbsp; Similarly, I found out that the dataset daily_activity has 33 distinct Ids, sleep_day has 24 Ids and weight_log has only 2 Ids. Therefore, I decided to use only the first two datasets for the rest of my analysis. 
+
+&nbsp;&nbsp;&nbsp;In order to merge  daily_activity and sleep_day, I renamed their date column to a common name for convenience. 
+
+```{r, fig.align='center'}
+#Renaming columns
+daily_activity<-daily_activity %>% rename(Date = ActivityDate)
+sleep_day<-sleep_day %>% rename(Date = SleepDay)
+
+```
+
+```{r, fig.align='center'}
+#Merging daily_activity and sleep_day using right join
+activity_sleep<-daily_activity %>% right_join(sleep_day, by=c("Id","Date"))
+```
+
+&nbsp;&nbsp;&nbsp;Based on the 5 number summary, there is a difference between mean Total Distance and mean Tracker Distance. So, I wanted to find out if the error is negligible. 
+
+```{r, fig.align='center'}
+#Finding the difference(error) between Total Distance and Tracker Distance
+activity_sleep<-activity_sleep %>% mutate( Errorindistance=(TotalDistance-TrackerDistance))
+mean(activity_sleep$Errorindistance)
+```
+
+```{r, fig.align='center'}
+#Plotting error in distance
+boxplot(activity_sleep$Errorindistance, horizontal = TRUE, main="Error in Tracker Distance and Total Distance")
+```
+
+&nbsp;&nbsp;&nbsp; The average error in the distance is 0.01435106. So, we can accept the error in actual distance and distance tracked by the devices. 
+
+```{r, fig.align='center'}
+ggplot(activity_sleep,aes(x=TotalHoursinBed, y=TotalHoursAsleep,color=TotalSleepRecords))+geom_point()+labs(title="Total Time Asleep vs Total Time Spent in Bed " , x= "Time spent in bed(in hours)", y= "Time spent asleep(in hours)")+theme_minimal()
+```
+&nbsp;&nbsp;&nbsp; From the scatterplot, there is a positive correlation between time spent in bed and time spent asleep as estimated. Then, I looked at the difference between these times. 
+
+```{r, fig.align='center'}
+# Difference in sleeping hours and hours in bed
+activity_sleep<-activity_sleep %>% mutate( DiffinBedHours=(TotalHoursinBed-TotalHoursAsleep))
+mean(activity_sleep$DiffinBedHours)*60
+```
+
+```{r, fig.align='center'}
+boxplot(activity_sleep$DiffinBedHours, horizontal = TRUE, main="Difference")
+```
+
+&nbsp;&nbsp;&nbsp; The average difference is about 39 minutes.
+
+```{r, fig.align='center'}
+ggplot(activity_sleep,aes(x=VeryActiveHours, y=Calories))+geom_smooth()+labs(title="Very Active Time vs Calories Burned " , x= "Very Active(in hours)", y= "Calories")+theme_minimal()
+```
+
+&nbsp;&nbsp;&nbsp; Next, I wanted to look at the relationship between active hours and calories burned. As estimated, there is a positive correlation-more active hours led to more calories burned. 
+
+```{r, fig.align='center'}
+ggplot(activity_sleep,mapping=aes(x=TotalSteps, y=Calories, color=TotalDistance))+geom_point()+labs(title="Total Steps vs Calories Burned" , x= "Total Steps", y= "Calories")+theme_minimal()
+```
+&nbsp;&nbsp;&nbsp; Likewise, I found similar results between steps and calories burned. 
+
+
+```{r, fig.align='center'}
+ggplot(activity_sleep,aes(x=VeryActiveHours, y=TotalHoursAsleep))+geom_smooth()+labs(title="Very Active Hours vs Total Hours Asleep " , x= "Very Active(in hours)", y= "Time spent asleep(in hours)")+theme_minimal()
+
+```
+
+&nbsp;&nbsp;&nbsp;In addition to the calories, I wanted to check how active hours affected the users sleep. From the graph of "Very Active Hours vs Total Hours Asleep", we can say that there is also a positive correlation between the two variables. When users spent more time being active, they slept more and got the recommended hours of sleep.. 
+
+```{r, fig.align='center'}
+ggplot(activity_sleep,aes(x=SedentaryHours, y=TotalHoursAsleep))+geom_smooth()+labs(title="Sedentary Hours vs Total Hours Asleep " , x= "Sedentary (in hours)", y= "Time spent asleep(in hours)")+theme_minimal()
+```
+&nbsp;&nbsp;&nbsp; In the same way, looking at the graph of sedentary hours and total hours asleep, there is a negative correlation. The more hours the users spent inactive, the less sleep they got. The two graphs might suggest that being more active helps them to sleep better. 
+
+### Recommendations
+
+&nbsp;&nbsp;&nbsp; Bellabeat makes health-focused products such as Bellabeat app, Time, Leaf and Spring for women. The marketing team of Bellabeat could focus on women who are having a hard time in improving their lifestyle and becoming healthy. There can be a number of factors that is stopping these women from enjoying a healthy lifestyle that they want. Some of the factors could be poor time management and lack of progress results. Some women may have a lot in their plate and might not be able to track their time or remember exercising/sleeping on time. Similarly, others might lose interest in their initiative and find it as a waste of time due to the lack of progress data. Here Bellabeat's products could help these women to put themselves back in track ,and analyze and review their goals and progress reports. Time and Leaf will track the women's activity, sleep and stress and the users can view their goals and progress in the Bellabeat app. Similarly, users can also schedule time blocks on the app for exercise and sleep so that they will get notifications to remind them of their healthy lifestyle choice.In addition to this, based on their goals or their previous data, the app can also recommend the amount of time they should be active in order to get the recommended amount of sleep or vice versa. Besides, the app could also calculate the amount of sleep and exercise needed to burn certain amount of calories. Besides,with the stress and sleep tracked, the app can also potentially help women with sleep problems. 
